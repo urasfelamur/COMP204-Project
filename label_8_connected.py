@@ -257,7 +257,7 @@ def resize(img, rectangle_array):
 
         # cropped image of above dimension
         img1 = img.crop((left, top, right, bottom))
-        new_size = (100, 100)
+        new_size = (21, 21)
         img1 = img1.resize(new_size)
         img1.show()
 
