@@ -3,7 +3,7 @@ from PIL import Image, ImageDraw
 
 
 def main():
-    img = Image.open('exm.JPG')
+    img = Image.open('example_picture.jpg')
     img_gray = img.convert('L')  # converts the image to grayscale image
     # img_bin = img.convert('1') #converts to a binary image, T=128, LOW=0, HIGH=255
     img_gray.show()
@@ -19,7 +19,9 @@ def main():
 
     rectangle_array = rectangle(label, img)
 
-    resize(img, rectangle_array)
+    #resize(img, rectangle_array)
+
+    resize(im, rectangle_array)
 
     # example
     # a_bin = binary_image(100,100, ONE)   #creates a binary image
@@ -248,6 +250,7 @@ def rectangle(label, img):
 
 
 def resize(img, rectangle_array):
+    img_data = np.zeros((len(rectangle_array), 7))
     for i in range(len(rectangle_array)):
         # setting the points for cropped image
         left = rectangle_array[i][1]
@@ -260,6 +263,69 @@ def resize(img, rectangle_array):
         new_size = (21, 21)
         img1 = img1.resize(new_size)
         img1.show()
+        img2 = np.asarray(img1)
+        hm = hu_moment(img2, 4, 4)
+        rm = r_moment(hm)
+        img_data[i] = hm
+        print(i, 'hu moment : ', hm)
+        print(i, 'r moment : ', rm)
+
+
+def hu_moment(bin_img, p, q):
+    m = np.zeros((4, 4))
+    for x in range(4):
+        for y in range(4):
+            for i in range(p):
+                for j in range(q):
+                    m[x][y] = m[x][y] + ((bin_img[i][j]) * (i**p) * (j**q))
+    #print('m: ', m)
+
+    # mass center
+    x_cen = (m[1][0]/m[0][0])
+    y_cen = (m[0][1]/m[0][0])
+
+    nu = np.zeros((4, 4))
+    for x in range(4):
+        for y in range(4):
+            for i in range(p):
+                for j in range(q):
+                    nu[x][y] = nu[x][y] + (bin_img[i][j]) * ((i-x_cen)**p) * ((j-y_cen)**q)
+    #print('nu: ', nu)
+
+    # scale invariant moment matrix
+    sim = np.zeros((4, 4))
+    for x in range(4):
+        for y in range(4):
+            for i in range(p):
+                for j in range(q):
+                    sim[x][y] = ((nu[x][y]) / ((nu[0][0]) ** ((i + j) / 2)))
+    #print('sim: ', sim)
+
+    h1 = sim[2][0] + sim[0][2]
+    h2 = (sim[2][0] - sim[0][2])**2 + 4*(sim[1][1])**2
+    h3 = (sim[3][0] - 3*sim[1][2])**2 + (3*sim[2][1] - sim[0][3])**2
+    h4 = (sim[3][0] + sim[1][2])**2 + (sim[2][1] + sim[0][3])**2
+    h5 = (sim[3][0] - 3*sim[1][2])*(sim[3][0] + sim[1][2])*(((sim[3][0] + sim[1][2])**2) - 3*((sim[2][1] + sim[0][3])**2)) + (3*sim[2][1] - sim[0][3])*(sim[2][1] + sim[0][3])*(3*((sim[3][0] + sim[1][2])**2) - ((sim[2][1] + sim[0][3])**2))
+    h6 = (sim[2][0] - sim[0][2])*(((sim[3][0] + sim[1][2])**2) - ((sim[2][1] + sim[0][3])**2)) + 4*sim[1][1]*(sim[3][0] + sim[1][2])*(sim[2][1] + sim[0][3])
+    h7 = (3*sim[2][1] - sim[0][3])*(sim[3][0] + sim[1][2])*(((sim[3][0] + sim[1][2])**2) - 3*((sim[2][1] + sim[0][3])**2)) + (3*sim[1][2] - sim[3][0])*(sim[2][1] + sim[0][3])*(3*((sim[3][0] + sim[1][2])**2) - ((sim[2][1] + sim[0][3])**2))
+    hm = np.array([h1, h2, h3, h4, h5, h6, h7])
+    #print('hm: ', hm)
+    return hm
+
+
+def r_moment(hm):
+    r1 = (hm[2]**(1/2))/hm[1]
+    r2 = (hm[1] + ((hm[2])**(1/2)))/(hm[1]-((hm[2])**(1/2)))
+    r3 = (hm[3]**(1/2))/(hm[4]**(1/2))
+    r4 = (hm[3]**(1/2))/(abs(hm[5])**(1/2))
+    r5 = (hm[4]**(1/2))/(abs(hm[5])**(1/2))
+    r6 = abs(hm[6])/(hm[1]*hm[3])
+    r7 = abs(hm[6])/(hm[1]*(abs(hm[5])**(1/2)))
+    r8 = abs(hm[6])/(hm[3]*(abs(hm[2])**(1/2)))
+    r9 = abs(hm[6])/((hm[2]*(abs(hm[5])))**(1/2))
+    r10 = abs(hm[5])/(hm[3]*hm[4])
+    rm = np.array([r1, r2, r3, r4, r5, r6, r7, r8, r9, r10])
+    return rm
 
 
 if __name__ == '__main__':
